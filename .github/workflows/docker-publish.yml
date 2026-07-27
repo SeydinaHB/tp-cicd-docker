@@ -1,0 +1,43 @@
+name: Build et Publication Docker
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Notifier Slack - Début du build
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+          --data '{"text":"🚀 Nouveau build en cours pour '"${{ github.repository }}"' sur la branche '"${{ github.ref_name }}"'..."}' \
+          ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: Récupérer le code source
+        uses: actions/checkout@v4
+
+      - name: Préparer Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Connexion à Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build et publication de l'image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/tp-cicd-docker:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/tp-cicd-docker:${{ github.sha }}
+
+      - name: Notifier Slack - Succès
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+          --data '{"text":"✅ Image publiée avec succès sur Docker Hub !\nDépôt: '"${{ github.repository }}"'\nBranche: '"${{ github.ref_name }}"'\nTag commit: '"${{ github.sha }}"'\nVoir le run: '"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"'"}' \
+          ${{ secrets.SLACK_WEBHOOK_URL }}
